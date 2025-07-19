@@ -1,39 +1,47 @@
 {
   "subjects": [
     {
+      "id":0,
       "name": "數學",
       "status": "red",
       "description": "微積分部分的概念還有些模糊，特別是應用題的部分。"
     },
     {
+      "id":1,
       "name": "物理",
       "status": "red",
       "description": "電磁學完全無法理解，需要從頭開始學習。"
     },
     {
+      "id":2,
       "name": "化學",
       "status": "red",
       "description": "對於化學鍵節的部分不熟悉。"
     },
     {
+      "id":3,
       "name": "生物",
       "status": "red",
       "description": "激素調節的部分還有些模糊。"
     },
     {
+      "id":4,
       "name": "地球科學",
       "status": "red",
       "description": "大氣層的部分不清楚。"
     },
     {
+      "id":5,
       "name": "英文",
       "status": "red",
       "description": "單字量不夠，需要加強背誦。"
     },
     {
+      "id":6,
       "name": "國文",
       "status": "red",
       "description": "文言文閱讀解讀困難。"
     }
+    
   ]
 }
