@@ -28,9 +28,9 @@
   {
     "task_id": 3,
     "subject_id": 2,
-    "description": "觀看化學線上課程 CH3 並做筆記",
-    "resource_code": "chem_online_course_ch3",
-    "status": "doing",
+    "description": " 完成化學講義第一章：化學反應",
+    "resource_code": "chem_ref_book",
+    "status": "todo",
     "type": "study",
     "due_date": "2025-07-28",
     "peak_time_required": true,
@@ -63,5 +63,31 @@
     "last_review_date": "2025-07-19",
     "next_review_date": "2025-07-20",
     "review_interval": 1
+  },
+  {
+    "task_id": 6,
+    "subject_id": 3,
+    "description": "完成生物第一週試題",
+    "resource_code": "bio_ref_book",
+    "status": "todo",
+    "type": "study",
+    "due_date": null,
+    "peak_time_required": false,
+    "last_review_date": null,
+    "next_review_date": null,
+    "review_interval": 0
+  },
+  {
+    "task_id": 7,
+    "subject_id": 3,
+    "description": "完成生物第一週試題",
+    "resource_code": null,
+    "status": "todo",
+    "type": "study",
+    "due_date": "2025-08-01",
+    "peak_time_required": false,
+    "last_review_date": null,
+    "next_review_date": null,
+    "review_interval": 0
   }
 ]
