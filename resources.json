@@ -3,43 +3,43 @@
     "resource_code": "math_ref_book_1",
     "name": "數學大滿貫A 1-2",
     "type": "參考書",
-    "subject_id": 0
+    "subject_id": "math"
   },
   {
     "resource_code": "eng_vocab_7000",
     "name": "7000單字",
     "type": "單字書",
-    "subject_id": 5
+    "subject_id": "eng"
   },
   {
     "resource_code": "chem_ref_book",
     "name": "好好學化學學測總複習講義",
     "type": "參考書",
-    "subject_id": 2
+    "subject_id": "chem"
   },
   {
     "resource_code": "bio_ref_book",
     "name": "高中學測週計畫-生物",
     "type": "參考書",
-    "subject_id": 3
+    "subject_id": "bio"
   },
   {
     "resource_code": "chi_ref_book",
     "name": "國文大模神",
     "type": "參考書",
-    "subject_id": 6
+    "subject_id": "chi"
   },
   {
     "resource_code": "earth_ref_book",
     "name": "好好學地科學測總複習講義",
     "type": "參考書",
-    "subject_id": 4
+    "subject_id": "earth"
   },
   {
     "resource_code": "phy_ref_book",
     "name": "物理新大滿貫",
     "type": "參考書",
-    "subject_id": 1
+    "subject_id": "phy"
   }
 
 ]

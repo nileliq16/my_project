@@ -1,0 +1,423 @@
+# 角色
+
+妳是一位台灣的教育專家、電腦科學家、軟體工程師，擅長領域包含輔導台灣高中生備考、開發備考系統。
+
+# 任務
+
+請妳根據我提供的問題與原專案內容，並參考我提出的要求與格式，給予需要的內容。
+
+# 要求
+
+1. 請回覆給我需要的程式碼就好。
+2. 請不要給我額外的說明或解釋。
+3. 使用萊特納系統處理程式內的對應邏輯。
+
+# 格式
+
+用 Python 語言撰寫程式碼，並使用 Markdown 語法區塊呈現，方便我直接複製貼上。
+
+# 問題
+
+建立一個新的 `scheduler.py` 模組，在其中編寫 `update_review_schedule(task, performance)` 函式。此函式根據 「good」、「ok」、「bad」的表現來調整任務的下一次複習日期與間隔。
+
+# 原專案內容
+
+* main.py
+```python
+import json
+import sys
+from typing import List, Dict, Any, Optional
+from pathlib import Path
+import typer
+from colorama import Fore, Style, init
+from datetime import datetime
+
+# 初始化 colorama
+init(autoreset=True)
+
+# --- 常數定義 ---
+# 使用 Path 物件來處理檔案路徑，更具彈性
+CWD = Path(__file__).parent
+SUBJECTS_FILE = CWD / "subjects.json"
+TASKS_FILE = CWD / "tasks.json"
+RESOURCES_FILE = CWD / "resources.json"
+
+
+# --- 輔助函式 (檔案處理) ---
+
+def load_data(filepath: Path) -> Any:
+    """載入 JSON 檔案並回傳其內容。若檔案不存在或格式錯誤，則回傳空列表。"""
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        # typer.secho 是 typer 內建的彩色 print，更方便
+        typer.secho(f"警告：找不到檔案 {filepath}。將視為空檔案處理。", fg=typer.colors.YELLOW)
+        return []
+    except json.JSONDecodeError:
+        typer.secho(f"錯誤：檔案 {filepath} 格式不正確。", fg=typer.colors.RED)
+        sys.exit(1) # 發生嚴重錯誤時直接退出程式
+
+def save_data(filepath: Path, data: Any):
+    """將資料以美觀的 JSON 格式儲存至檔案。"""
+    try:
+        with open(filepath, 'w', encoding='utf-8') as f:
+            # indent=2 讓 JSON 格式化，方便閱讀
+            # ensure_ascii=False 確保中文能正常顯示
+            json.dump(data, f, indent=2, ensure_ascii=False)
+    except IOError as e:
+        typer.secho(f"錯誤：無法寫入檔案 {filepath}。錯誤訊息：{e}", fg=typer.colors.RED)
+        sys.exit(1)
+
+
+# --- Typer 應用程式實例化 ---
+
+# 主應用程式
+app = typer.Typer(help="學測致勝系統 CLI - 您的個人化學習引擎")
+# 'task' 子命令群組
+task_app = typer.Typer(help="管理您的學習任務")
+# 將子命令群組加入主應用程式
+app.add_typer(task_app, name="task")
+
+
+# --- 核心邏輯函式 ---
+
+def get_subjects_dict() -> Dict[int, Dict]:
+    """讀取學科檔案，並轉換為以 ID 為鍵的字典以便快速查找。"""
+    subjects_data = load_data(SUBJECTS_FILE)
+    # 確保 subjects.json 的頂層是字典且包含 'subjects' 鍵
+    if isinstance(subjects_data, dict) and 'subjects' in subjects_data:
+        return {s['id']: s for s in subjects_data['subjects']}
+    return {}
+
+def show_subjects():
+    """顯示所有學科的狀態"""
+    subjects_dict = get_subjects_dict()
+    if not subjects_dict:
+        typer.secho("找不到任何學科資料，請檢查 subjects.json。", fg=typer.colors.RED)
+        return
+
+    print("--- 您的學科「紅黃綠」燈號盤點結果 ---\n")
+    for subject in subjects_dict.values():
+        name = subject.get('name', '未知學科')
+        status = subject.get('status', 'unknown').lower()
+        description = subject.get('description', '沒有描述')
+
+        color_map = {
+            'green': Fore.GREEN,
+            'yellow': Fore.YELLOW,
+            'red': Fore.RED
+        }
+        symbol_map = {
+            'green': '✅',
+            'yellow': '🟡',
+            'red': '🔴'
+        }
+        
+        color = color_map.get(status, Fore.WHITE)
+        symbol = symbol_map.get(status, '⚪️')
+        
+        print(color + f"{symbol} {name} ({status.capitalize()})")
+        print(Style.DIM + f"   描述：{description}\n")
+
+
+# --- Typer 命令定義 ---
+
+@app.command(name="show-subjects")
+def show_subjects_command():
+    """
+    顯示所有學科的盤點狀態。
+    """
+    show_subjects()
+
+@task_app.command(name="list")
+def list_tasks(
+    status: str = typer.Option("all", "--status", "-s", help="依狀態篩選任務 (all, todo, doing, done)")
+):
+    """
+    列出所有任務。
+    """
+    tasks = load_data(TASKS_FILE)
+    subjects_dict = get_subjects_dict()
+
+    if not tasks:
+        typer.secho("目前沒有任何任務。", fg=typer.colors.YELLOW)
+        return
+
+    typer.secho(f"--- 任務列表 (狀態: {status}) ---", bold=True)
+    
+    status_colors = {
+        "todo": typer.colors.RED,
+        "doing": typer.colors.YELLOW,
+        "done": typer.colors.GREEN,
+    }
+
+    found_task = False
+    for task in tasks:
+        task_status = task.get('status', 'unknown')
+        if status.lower() != 'all' and task_status != status.lower():
+            continue
+        
+        found_task = True
+        subject_id = task.get('subject_id')
+        subject_name = subjects_dict.get(subject_id, {}).get('name', '未知科目')
+        
+        color = status_colors.get(task_status, typer.colors.WHITE)
+        
+        typer.secho(f"ID: {task['task_id']:<3}", nl=False)
+        typer.secho(f"[{task_status.upper():^5}] ", fg=color, nl=False)
+        typer.secho(f"({subject_name}) ", fg=typer.colors.BLUE, nl=False)
+        typer.secho(f"{task['description']}", nl=False)
+        typer.secho(f"  截止日期：{task.get('due_date', '未設定')}")
+    if not found_task:
+        typer.secho(f"找不到狀態為 '{status}' 的任務。", fg=typer.colors.YELLOW)
+
+
+@task_app.command(name="add")
+def add_task(
+    description: str = typer.Argument(..., help="任務的詳細描述。"),
+    subject_id: int = typer.Option(..., "--subject-id", "-id", prompt=True, help="此任務歸屬的學科ID。"),
+    resource_code: Optional[str] = typer.Option(None, "--resource", "-r", help="關聯的資源代碼。"),
+    due_date: Optional[str] = typer.Option(None, "--due", "-d", help="任務截止日期 (格式: YYYY-MM-DD)。")
+):
+    """
+    新增一筆新的學習任務。
+    """
+    tasks = load_data(TASKS_FILE)
+
+    # 自動計算新任務的 ID
+    if not tasks:
+        new_id = 1
+    else:
+        # 使用生成器表達式，更高效
+        max_id = max(task.get('task_id', 0) for task in tasks)
+        new_id = max_id + 1
+
+    # 建立新任務的字典物件
+    new_task = {
+        "task_id": new_id,
+        "subject_id": subject_id,
+        "description": description,
+        "resource_code": resource_code,
+        "status": "todo", # 新任務預設為 'todo'
+        "type": "study",   # 預設為 'study'
+        "due_date": due_date,
+        "peak_time_required": False, # 預設為 False
+        "last_review_date": None,
+        "next_review_date": None,
+        "review_interval": 0
+    }
+
+    # 將新任務加入列表並儲存
+    tasks.append(new_task)
+    save_data(TASKS_FILE, tasks)
+
+    typer.secho(f"✅ 成功新增任務 (ID: {new_id}): {description}", fg=typer.colors.GREEN)
+
+
+if __name__ == '__main__':
+    app()
+```
+
+* resources.json
+```json
+[
+  {
+    "resource_code": "math_ref_book_1",
+    "name": "數學大滿貫A 1-2",
+    "type": "參考書",
+    "subject_id": "math"
+  },
+  {
+    "resource_code": "eng_vocab_7000",
+    "name": "7000單字",
+    "type": "單字書",
+    "subject_id": "eng"
+  },
+  {
+    "resource_code": "chem_ref_book",
+    "name": "好好學化學學測總複習講義",
+    "type": "參考書",
+    "subject_id": "chem"
+  },
+  {
+    "resource_code": "bio_ref_book",
+    "name": "高中學測週計畫-生物",
+    "type": "參考書",
+    "subject_id": "bio"
+  },
+  {
+    "resource_code": "chi_ref_book",
+    "name": "國文大模神",
+    "type": "參考書",
+    "subject_id": "chi"
+  },
+  {
+    "resource_code": "earth_ref_book",
+    "name": "好好學地科學測總複習講義",
+    "type": "參考書",
+    "subject_id": "earth"
+  },
+  {
+    "resource_code": "phy_ref_book",
+    "name": "物理新大滿貫",
+    "type": "參考書",
+    "subject_id": "phy"
+  }
+
+]
+```
+
+* subjects.json
+```json
+{
+  "subjects": [
+    {
+      "id":"math",
+      "name": "數學",
+      "status": "red",
+      "description": "微積分部分的概念還有些模糊，特別是應用題的部分。"
+    },
+    {
+      "id":"phy",
+      "name": "物理",
+      "status": "red",
+      "description": "電磁學完全無法理解，需要從頭開始學習。"
+    },
+    {
+      "id":"chem",
+      "name": "化學",
+      "status": "red",
+      "description": "對於化學鍵節的部分不熟悉。"
+    },
+    {
+      "id":"bio",
+      "name": "生物",
+      "status": "red",
+      "description": "激素調節的部分還有些模糊。"
+    },
+    {
+      "id":"earth",
+      "name": "地球科學",
+      "status": "red",
+      "description": "大氣層的部分不清楚。"
+    },
+    {
+      "id":"eng",
+      "name": "英文",
+      "status": "red",
+      "description": "單字量不夠，需要加強背誦。"
+    },
+    {
+      "id":"chi",
+      "name": "國文",
+      "status": "red",
+      "description": "文言文閱讀解讀困難。"
+    },
+    {
+      "id":"health",
+      "name": "健康",
+      "status": "red",
+      "description": "身體狀態不佳。"
+    }
+  ]
+}
+
+```
+
+* tasks.json
+```json
+[
+  {
+    "task_id": 1,
+    "subject_id": "math",
+    "description": "完成數學講義第一章：數與式",
+    "resource_code": "math_ref_book_1",
+    "status": "todo",
+    "type": "study",
+    "due_date": "2025-07-25",
+    "peak_time_required": true,
+    "last_review_date": null,
+    "next_review_date": null,
+    "review_interval": 0
+  },
+  {
+    "task_id": 2,
+    "subject_id": "eng",
+    "description": "複習 7000 單字 List 1",
+    "resource_code": "eng_vocab_7000_L1-10",
+    "status": "todo",
+    "type": "study",
+    "due_date": null,
+    "peak_time_required": false,
+    "last_review_date": "2025-07-20",
+    "next_review_date": "2025-07-22",
+    "review_interval": 2
+  },
+  {
+    "task_id": 3,
+    "subject_id": "chem",
+    "description": " 完成化學講義第一章：化學反應",
+    "resource_code": "chem_ref_book",
+    "status": "todo",
+    "type": "study",
+    "due_date": "2025-07-28",
+    "peak_time_required": true,
+    "last_review_date": null,
+    "next_review_date": null,
+    "review_interval": 0
+  },
+  {
+    "task_id": 4,
+    "subject_id": "hleath",
+    "description": "晚上去公園跑步 30 分鐘",
+    "resource_code": null,
+    "status": "todo",
+    "type": "wellbeing",
+    "due_date": "2025-07-21",
+    "peak_time_required": false,
+    "last_review_date": null,
+    "next_review_date": null,
+    "review_interval": 0
+  },
+  {
+    "task_id": 5,
+    "subject_id": "phy",
+    "description": "訂正高一物理第一次段考錯題",
+    "resource_code": "geo_notes_B1",
+    "status": "done",
+    "type": "study",
+    "due_date": "2025-07-19",
+    "peak_time_required": false,
+    "last_review_date": "2025-07-19",
+    "next_review_date": "2025-07-20",
+    "review_interval": 1
+  },
+  {
+    "task_id": 6,
+    "subject_id": "bio",
+    "description": "完成生物第一週試題",
+    "resource_code": "bio_ref_book",
+    "status": "todo",
+    "type": "study",
+    "due_date": null,
+    "peak_time_required": false,
+    "last_review_date": null,
+    "next_review_date": null,
+    "review_interval": 0
+  },
+  {
+    "task_id": 7,
+    "subject_id": "bio",
+    "description": "完成生物第一週試題",
+    "resource_code": null,
+    "status": "todo",
+    "type": "study",
+    "due_date": "2025-08-01",
+    "peak_time_required": false,
+    "last_review_date": null,
+    "next_review_date": null,
+    "review_interval": 0
+  }
+]
+```
