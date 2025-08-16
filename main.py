@@ -4,7 +4,8 @@ from typing import List, Dict, Any, Optional
 from pathlib import Path
 import typer
 from colorama import Fore, Style, init
-from datetime import datetime
+from datetime import datetime, timezone
+from collections import Counter
 
 # --- 核心模組 ---
 from scheduler import update_review_schedule
@@ -18,6 +19,7 @@ CWD = Path(__file__).parent
 SUBJECTS_FILE = CWD / "subjects.json"
 TASKS_FILE = CWD / "tasks.json"
 RESOURCES_FILE = CWD / "resources.json"
+LOG_FILE = CWD / "log.json"
 
 
 # --- 輔助函式 (檔案處理) ---
@@ -28,7 +30,8 @@ def load_data(filepath: Path) -> Any:
         with open(filepath, 'r', encoding='utf-8') as f:
             return json.load(f)
     except FileNotFoundError:
-        typer.secho(f"警告：找不到檔案 {filepath}。將視為空檔案處理。", fg=typer.colors.YELLOW)
+        if filepath != LOG_FILE:
+            typer.secho(f"警告：找不到檔案 {filepath}。將視為空檔案處理。", fg=typer.colors.YELLOW)
         return []
     except json.JSONDecodeError:
         typer.secho(f"錯誤：檔案 {filepath} 格式不正確。", fg=typer.colors.RED)
@@ -62,6 +65,75 @@ def get_subjects_dict() -> Dict[str, Dict]:
 
 # --- Typer 命令定義 ---
 
+@app.command(name="show-id")
+def show_subject_ids():
+    """
+    列出所有學科的名稱及其對應的代碼 (ID)。
+    """
+    subjects_dict = get_subjects_dict()
+    if not subjects_dict:
+        typer.secho("找不到任何學科資料，請檢查 subjects.json。", fg=typer.colors.RED)
+        raise typer.Exit()
+    
+    typer.secho("--- 📖 學科代碼列表 ---", bold=True, fg=typer.colors.BRIGHT_GREEN)
+    typer.secho(f"{'學科名稱':<6s} | {'學科代碼 (ID)'}", bold=True)
+    typer.secho("-" * 25)
+    
+    for subject in subjects_dict.values():
+        name = subject.get('name', '未知學科')
+        subject_id = subject.get('id', 'N/A')
+        typer.secho(f"{name:<7s}| ", nl=False)
+        typer.secho(f"{subject_id}", fg=typer.colors.CYAN)
+
+@app.command(name="status")
+def show_status():
+    """
+    快速檢查目前的整體學習狀態，顯示各科目的待辦任務數量。
+    """
+    tasks = load_data(TASKS_FILE)
+    subjects_dict = get_subjects_dict()
+
+    if not subjects_dict:
+        typer.secho("找不到任何學科資料，請先設定 subjects.json。", fg=typer.colors.RED)
+        raise typer.Exit()
+
+    todo_counts = Counter(
+        task['subject_id'] 
+        for task in tasks 
+        if task.get('status') == 'todo'
+    )
+
+    typer.secho("--- 📊 學習狀態總覽 (各科待辦任務) ---", bold=True, fg=typer.colors.BRIGHT_CYAN)
+    
+    sorted_subjects = sorted(
+        subjects_dict.values(), 
+        key=lambda s: todo_counts.get(s['id'], 0), 
+        reverse=True
+    )
+
+    for subject in sorted_subjects:
+        subject_id = subject.get('id')
+        subject_name = subject.get('name', '未知科目')
+        count = todo_counts.get(subject_id, 0)
+        
+        if count > 5:
+            color = typer.colors.BRIGHT_RED
+        elif count > 2:
+            color = typer.colors.YELLOW
+        else:
+            color = typer.colors.GREEN
+            
+        bar = "█" * count
+        typer.secho(f"  - {subject_name:<6s}: ", nl=False, fg=typer.colors.WHITE)
+        typer.secho(f"{count:<2} 項 ", bold=True, fg=color, nl=False)
+        typer.secho(bar, fg=color)
+        
+    total_todo = sum(todo_counts.values())
+    typer.secho("\n" + "-"*30)
+    typer.secho(f"總計待辦任務: ", nl=False)
+    typer.secho(f"{total_todo} 項", bold=True, fg=typer.colors.BRIGHT_YELLOW)
+
+
 @app.command(name="plan")
 def show_plan(
     daily: bool = typer.Option(False, "--daily", help="顯示每日學習計畫。")
@@ -82,7 +154,6 @@ def show_plan(
 
     typer.secho(f"--- 📝 您的今日學習計畫 ({datetime.now().strftime('%Y-%m-%d')}) ---", bold=True, fg=typer.colors.BRIGHT_MAGENTA)
 
-    # 顯示複習任務 (高優先級)
     typer.secho("\n🔥 高優先級複習 (逾期任務)", bold=True, fg=typer.colors.BRIGHT_RED)
     
     overdue_tasks = []
@@ -109,7 +180,6 @@ def show_plan(
             typer.secho(f"{output} - ", nl=False, fg=typer.colors.RED)
             typer.secho(f"已逾期 {days} 天", bold=True, fg=typer.colors.RED)
 
-    # 顯示今日到期複習任務
     typer.secho("\n💧 今日到期複習", bold=True, fg=typer.colors.BRIGHT_BLUE)
     if not due_today_tasks:
         typer.secho("  今日沒有到期的複習任務。", fg=typer.colors.GREEN)
@@ -120,7 +190,6 @@ def show_plan(
             output = f"  - [ID: {task['task_id']:<2}] ({subject_name}) {task['description']}"
             typer.secho(output, fg=typer.colors.BLUE)
 
-    # 顯示新任務
     typer.secho("\n🚀 今日新任務", bold=True, fg=typer.colors.BRIGHT_GREEN)
     if not new_tasks:
         typer.secho("  沒有新的任務，記得去 'task add' 新增！")
@@ -131,7 +200,7 @@ def show_plan(
             typer.secho(f"  - [ID: {task['task_id']:<2}] ({subject_name}) {task['description']}", fg=typer.colors.GREEN)
 
     typer.secho("\n" + "="*50)
-    typer.secho("💡 提示：使用 'python main.py task review <ID> -p <表現>' 來完成複習。", fg=typer.colors.CYAN)
+    typer.secho("💡 提示：使用 'python main.py task complete <ID>' 來完成任務。", fg=typer.colors.CYAN)
 
 
 @app.command(name="show-subjects")
@@ -201,7 +270,7 @@ def list_tasks(
 @task_app.command(name="add")
 def add_task(
     description: str = typer.Argument(..., help="任務的詳細描述。"),
-    subject_id: str = typer.Option(..., "--subject-id", "-id", prompt=True, help="此任務歸屬的學科ID。"),
+    subject_id: str = typer.Option(..., "--subject-id", "-id", help="此任務歸屬的學科ID。"),
     resource_code: Optional[str] = typer.Option(None, "--resource", "-r", help="關聯的資源代碼。"),
     due_date: Optional[str] = typer.Option(None, "--due", "-d", help="任務截止日期 (格式: YYYY-MM-DD)。")
 ):
@@ -219,38 +288,59 @@ def add_task(
     save_data(TASKS_FILE, tasks)
     typer.secho(f"✅ 成功新增任務 (ID: {new_id}): {description}", fg=typer.colors.GREEN)
 
-@task_app.command(name="review")
-def review_task(
-    task_id: int = typer.Argument(..., help="要複習的任務 ID。"),
-    performance: str = typer.Option(
-        ..., "--performance", "-p",
-        prompt="你的複習表現如何？ (good, ok, bad)",
-        help="你的複習表現 (good, ok, bad)"
-    )
+@task_app.command(name="complete")
+def complete_task(
+    task_id: int = typer.Argument(..., help="要完成或複習的任務 ID。")
 ):
-    """紀錄一次複習，並根據表現更新下一次複習排程。"""
-    performance = performance.lower()
-    if performance not in ['good', 'ok', 'bad']:
-        typer.secho("錯誤：表現只能是 'good', 'ok', 或 'bad'。", fg=typer.colors.RED)
-        raise typer.Exit()
-
+    """
+    完成一項任務或紀錄一次複習，並根據表現更新排程與寫入日誌。
+    """
     tasks = load_data(TASKS_FILE)
-    task_to_update = None
-    for task in tasks:
-        if task.get('task_id') == task_id:
-            task_to_update = task
-            break
+    task_to_update = next((task for task in tasks if task.get('task_id') == task_id), None)
 
     if not task_to_update:
         typer.secho(f"錯誤：找不到 ID 為 {task_id} 的任務。", fg=typer.colors.RED)
         raise typer.Exit()
 
+    typer.secho(f"--- 正在完成任務 ID: {task_id} ({task_to_update['description']}) ---", bold=True)
+
+    performance = typer.prompt("你的複習/學習表現如何？ (good, ok, bad)").lower()
+    while performance not in ['good', 'ok', 'bad']:
+        typer.secho("無效的輸入，請重新輸入。", fg=typer.colors.YELLOW)
+        performance = typer.prompt("表現評分 (good, ok, bad)").lower()
+    
+    duration_minutes = typer.prompt("總共花了多少分鐘？", type=int)
+    notes = typer.prompt("有什麼心得筆記嗎？ (可留空)", default="", show_default=False)
+
+    activity_type = "review" if task_to_update.get('review_interval', 0) > 0 else "new_study"
+    if activity_type == "new_study":
+        task_to_update['status'] = 'done'
+
+    log_data = load_data(LOG_FILE)
+    if not isinstance(log_data, dict) or 'logs' not in log_data:
+        log_data = {"logs": []}
+    logs = log_data.get("logs", [])
+    new_log_id = max((log.get('log_id', 0) for log in logs), default=0) + 1
+    
+    new_log = {
+        "log_id": new_log_id,
+        "task_id": task_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "activity_type": activity_type,
+        "duration_minutes": duration_minutes,
+        "performance": performance,
+        "notes": notes
+    }
+    
+    logs.append(new_log)
+    save_data(LOG_FILE, {"logs": logs})
+    typer.secho("學習活動已成功寫入日誌。", fg=typer.colors.GREEN)
+
     updated_task = update_review_schedule(task_to_update, performance)
     save_data(TASKS_FILE, tasks)
 
     next_review_date = updated_task.get('next_review_date', 'N/A')
-    typer.secho(f"✅ 任務 {task_id} 複習完畢！", fg=typer.colors.GREEN)
-    typer.secho(f"   表現：{performance.capitalize()}")
+    typer.secho(f"✅ 任務 {task_id} 已完成！", fg=typer.colors.GREEN, bold=True)
     typer.secho(f"   下次複習日期已更新為：{next_review_date}", fg=typer.colors.CYAN)
 
 if __name__ == '__main__':

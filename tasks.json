@@ -60,8 +60,8 @@
     "type": "study",
     "due_date": "2025-07-19",
     "peak_time_required": false,
-    "last_review_date": "2025-08-02",
-    "next_review_date": "2025-08-03",
+    "last_review_date": "2025-08-16",
+    "next_review_date": "2025-08-17",
     "review_interval": 1
   },
   {
@@ -99,14 +99,40 @@
     "type": "study",
     "due_date": "2025-08-02",
     "peak_time_required": false,
-    "last_review_date": "2025-08-02",
-    "next_review_date": "2025-08-05",
-    "review_interval": 3
+    "last_review_date": "2025-08-16",
+    "next_review_date": "2025-08-30",
+    "review_interval": 14
   },
   {
     "task_id": 9,
     "subject_id": "chi",
     "description": "完成國文大模神第一回",
+    "resource_code": null,
+    "status": "todo",
+    "type": "study",
+    "due_date": null,
+    "peak_time_required": false,
+    "last_review_date": null,
+    "next_review_date": null,
+    "review_interval": 0
+  },
+  {
+    "task_id": 10,
+    "subject_id": "che",
+    "description": "完成化學歷屆試題地1到2冊",
+    "resource_code": null,
+    "status": "todo",
+    "type": "study",
+    "due_date": null,
+    "peak_time_required": false,
+    "last_review_date": null,
+    "next_review_date": null,
+    "review_interval": 0
+  },
+  {
+    "task_id": 11,
+    "subject_id": "earth",
+    "description": "地質年代",
     "resource_code": null,
     "status": "todo",
     "type": "study",

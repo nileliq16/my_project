@@ -1,0 +1,40 @@
+{
+  "logs": [
+    {
+      "log_id": 1,
+      "task_id": 2,
+      "timestamp": "2025-08-16T10:30:00Z",
+      "activity_type": "review",
+      "duration_minutes": 25,
+      "performance": "good",
+      "notes": "List 1 單字複習完畢，感覺很熟悉。"
+    },
+    {
+      "log_id": 2,
+      "task_id": 5,
+      "timestamp": "2025-08-16T11:15:30Z",
+      "activity_type": "review",
+      "duration_minutes": 40,
+      "performance": "bad",
+      "notes": "物理錯題還是不太懂，特別是電磁學的部分，需要再找老師問。"
+    },
+    {
+      "log_id": 3,
+      "task_id": 8,
+      "timestamp": "2025-08-17T09:00:00Z",
+      "activity_type": "new_study",
+      "duration_minutes": 55,
+      "performance": null,
+      "notes": "第一次寫國文大模神，錯了 5 題，主要在文意理解。"
+    },
+    {
+      "log_id": 4,
+      "task_id": 8,
+      "timestamp": "2025-08-16T12:37:04.186328+00:00",
+      "activity_type": "review",
+      "duration_minutes": 120,
+      "performance": "good",
+      "notes": ""
+    }
+  ]
+}
